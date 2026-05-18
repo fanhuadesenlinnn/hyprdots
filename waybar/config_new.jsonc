@@ -23,127 +23,88 @@
     "custom/seperator",
     "custom/transparency",
     "custom/seperator",
-    "temperature#gpu",
-    "custom/seperator",
-    // "custom/gh",
-    // "custom/seperator",
     "backlight",
     "custom/seperator",
     "wireplumber",
     "custom/seperator",
     "network",
-    // "custom/seperator",
+    "custom/seperator",
     "battery",
+    "tray"
   ],
-  // vim: set ft=jsonc:
   "hyprland/submap": {
-    "format": "<span size='11000' foreground='#F8B471'> </span>{}",
+    "format": "SUB {}",
     "max-length": 20,
     "tooltip": false,
-    "on-click": "hyprctl dispatch submap reset",
+    "on-click": "hyprctl dispatch submap reset"
   },
   "custom/seperator": {
-    "format": "<span>|</span>"
-  },
-  "custom/transparency": {
-    "format": " ",
-    "tooltip": false,
-    "on-click": "~/.config/waybar/scripts/toggle-trans.sh",
-    "format-alt": " "
-  },
-  "temperature#gpu": {
-    "thermal-zone": 5,
-    "critical-threshold": 80,
-    "format-critical": "{temperatureC}°C ",
-    "format": "<span color='#eba0ac'> </span>{temperatureC}°C ",
+    "format": "<span>|</span>",
     "tooltip": false
   },
+  "custom/transparency": {
+    "format": "TRAN",
+    "tooltip": false,
+    "on-click": "~/.config/waybar/scripts/toggle-trans.sh"
+  },
   "backlight": {
-    "device": "intel_backlight",
     "scroll-step": 5,
-    "format": "{icon}",
-    "format-icons": [
-      " 󰃞",
-      " 󰃟",
-      " 󰃝",
-      " 󰃠"
-    ],
+    "format": "BL {percent}%",
     "tooltip": true,
-    "tooltip-format": "{percent}%"
+    "tooltip-format": "Brightness {percent}%"
   },
   "wireplumber": {
     "max-volume": 200,
     "scroll-step": 5,
-    "format": "{icon}",
-    "format-bluetooth": "{icon}",
-    "format-icons": [
-      "  ",
-      "   ",
-      "   "
-    ],
-    "format-muted": "   ",
+    "format": "VOL {volume}%",
+    "format-muted": "MUTE",
     "on-click-middle": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
     "on-click": "pamixer -t",
     "tooltip": true,
     "tooltip-format": "{volume}% | {desc}"
   },
   "network": {
-    "format-wifi": " {icon}",
-    "format-ethernet": "󰈀",
-    "format-icons": [
-      "󰤯 ",
-      "󰤟 ",
-      "󰤢 ",
-      "󰤢 ",
-      "󰤨 "
-    ],
-    "format-disconnected": "󰪎 ",
+    "format-wifi": "WIFI {essid}",
+    "format-ethernet": "ETH",
+    "format-disconnected": "NET down",
     "interval": 5,
-    "tooltip-format-wifi": " {bandwidthDownBytes} |  {bandwidthUpBytes} | {essid}",
+    "tooltip-format-wifi": "Down {bandwidthDownBytes} | Up {bandwidthUpBytes} | {essid}",
     "tooltip-format-disconnected": "Disconnected",
-    "on-click": "exec ~/.config/rofi/wifi/wifi.sh",
+    "on-click": "~/.config/rofi/wifi/wifi.sh",
     "on-click-right": "kitty -e nmtui"
   },
   "network#speed": {
     "interval": 1,
-    "format": "{ifname}%%",
-    "format-wifi": "<span color='#a6e3a1' >  </span>{bandwidthDownBytes} <span  color='#f38ba8'>  </span>{bandwidthUpBytes}",
-    "format-ethernet": "<span color='#a6e3a1' >  </span>{bandwidthDownBytes} <span  color='#f38ba8'>  </span>{bandwidthUpBytes}",
-    "format-disconnected": "󰌙",
+    "format": "{ifname}",
+    "format-wifi": "DOWN {bandwidthDownBytes}  UP {bandwidthUpBytes}",
+    "format-ethernet": "DOWN {bandwidthDownBytes}  UP {bandwidthUpBytes}",
+    "format-disconnected": "NET down",
     "tooltip-format": "{ipaddr}",
-    "format-linked": "󰈁 {ifname} (No IP)",
-    "tooltip-format-wifi": "{essid} {icon} {signalStrength}%",
-    "tooltip-format-ethernet": "{ifname} 󰌘",
-    "tooltip-format-disconnected": "󰌙 Disconnected",
-    "max-length": 22,
-    "min-length": 20,
-    "format-icons": [
-      "󰤯",
-      "󰤟",
-      "󰤢",
-      "󰤥",
-      "󰤨"
-    ]
+    "tooltip-format-wifi": "{essid} {signalStrength}%",
+    "tooltip-format-ethernet": "{ifname}",
+    "tooltip-format-disconnected": "Disconnected",
+    "max-length": 28,
+    "min-length": 18
   },
   "cpu": {
     "interval": 1,
-    "format": "<span color='#89b4fa' font='Font Awesome 6 Free-Solid'></span>  {usage}%",
-    "on-click": "kitty btop"
+    "format": "<span color='#89b4fa'>CPU</span> {usage}%",
+    "on-click": "kitty -e btop"
   },
   "memory": {
     "interval": 1,
-    "format": " <span color='#89b4fa' font='Font Awesome 5 Free'></span>  {percentage}%",
-    "on-click": "kitty btop",
+    "format": "<span color='#89b4fa'>MEM</span> {percentage}%",
+    "on-click": "kitty -e btop",
     "tooltip-format": "{used}/{total} GiB"
   },
   "custom/wallpaper": {
-    "format": " <span  font='Font Awesome 6 Free'>󰸉</span>",
-    "on-click": "~/.config/waybar/scripts/change-wallpaper.sh && hyprpaper",
+    "format": "WALL",
+    "on-click": "~/.config/waybar/scripts/change-wallpaper.sh",
     "tooltip": false,
     "on-click-right": "kitty -e ~/.config/waybar/scripts/select-wallpaper.sh"
   },
   "custom/gh": {
-    "exec": "sleep 1 & ~/.config/waybar/scripts/weekly_commits dark",
+    "exec": "sleep 1 && ~/.config/waybar/scripts/weekly_commits dark",
     "return-type": "json",
     "interval": 2400,
     "tooltip": true,
@@ -160,97 +121,24 @@
     "on-scroll-up": "hyprctl dispatch workspace e-1",
     "on-scroll-down": "hyprctl dispatch workspace e+1"
   },
-  "custom/arch": {
-    "format": "<span font='omarchy'></span>",
-  },
   "clock": {
     "format": "{:%H:%M / %h %d}",
     "tooltip": true,
     "tooltip-format": "<tt>{calendar}</tt>"
   },
-  "custom/wallpaper": {
-    "format": "\uf03e",
-    "on-click": "~/.config/waybar/scripts/change-wallpaper.sh && hyprpaper",
-    "tooltip": false,
-    "on-click-right": "kitty -e ~/.config/waybar/scripts/select-wallpaper.sh"
-  },
   "battery": {
-    "format": "{icon} {capacity}%",
-    "format-plugged": "",
-    "format-icons": {
-      "charging": [
-        "󰢜 ",
-        "󰂆 ",
-        "󰂇 ",
-        "󰂈 ",
-        "󰢝 ",
-        "󰂉 ",
-        "󰢞 ",
-        "󰂊 ",
-        "󰂋 ",
-        "󰂅 "
-      ],
-      "default": [
-        "󰁺",
-        "󰁻",
-        "󰁼",
-        "󰁽",
-        "󰁾",
-        "󰁿",
-        "󰂀",
-        "󰂁",
-        "󰂂",
-        "󰁹"
-      ]
-    },
-    "format-full": "󰂅 ",
-    "format-alt": "{icon} ",
-    "tooltip-format-discharging": "{power:>1.0f}W↓ {capacity}%",
-    "tooltip-format-charging": "{power:>1.0f}W↑ {capacity}%",
+    "format": "BAT {capacity}%",
+    "format-plugged": "AC {capacity}%",
+    "format-full": "BAT full",
+    "format-alt": "BAT {time}",
+    "tooltip-format-discharging": "{power:>1.0f}W -> {capacity}%",
+    "tooltip-format-charging": "{power:>1.0f}W -> {capacity}%",
     "interval": 5,
     "states": {
       "good": 95,
       "warning": 30,
       "critical": 15
-    },
-  },
-  "bluetooth": {
-    "format": "",
-    "format-disabled": "󰂲",
-    "format-connected": "",
-    "tooltip-format": "Devices connected: {num_connections}",
-    "on-click": "blueberry"
-  },
-  "pulseaudio": {
-    "format": "{icon}",
-    "on-click": "$TERMINAL --class=Wiremix -e wiremix",
-    "on-click-right": "pamixer -t",
-    "tooltip-format": "Playing at {volume}%",
-    "scroll-step": 5,
-    "format-muted": "",
-    "format-icons": {
-      "default": [
-        "",
-        "",
-        ""
-      ]
     }
-  },
-  "group/tray-expander": {
-    "orientation": "inherit",
-    "drawer": {
-      "transition-duration": 600,
-      "click-to-reveal": true,
-      "children-class": "tray-group-item"
-    },
-    "modules": [
-      "custom/expand-icon",
-      "tray"
-    ]
-  },
-  "custom/expand-icon": {
-    "format": " ",
-    "tooltip": false
   },
   "tray": {
     "icon-size": 12,

@@ -1,21 +1,32 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 
-if [ $(pgrep -c hyprpaper) -ne 0 ]; then
-  hyprctl hyprpaper unload all
-  killall hyprpaper
+set -euo pipefail
+
+TARGET="${WALLPAPER_DIR:-$HOME/Pictures/Wallpaper}"
+CONFIG_PATH="$HOME/.config/hypr/hyprpaper.conf"
+
+if [[ ! -d "$TARGET" ]]; then
+  notify-send -t 4000 "Wallpaper" "Directory not found: $TARGET" || true
+  exit 1
 fi
 
-TARGET="$HOME/Pictures/Wallpaper"
-WALLPAPER=$(find "$TARGET" -type f -regex '.*\.\(jpg\|jpeg\|png\|webp\)' | shuf -n 1)
+WALLPAPER="$(
+  find "$TARGET" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) |
+    shuf -n 1
+)"
 
-CONFIG_PATH="$HOME/.config/hypr/hyprpaper.conf"
-echo "$CONFIG_PATH"
-echo "$WALLPAPER"
-echo "$TARGET"
+if [[ -z "$WALLPAPER" ]]; then
+  notify-send -t 4000 "Wallpaper" "No images found in $TARGET" || true
+  exit 1
+fi
 
-echo "splash = false" >"$CONFIG_PATH"
-echo "wallpaper {" >>"$CONFIG_PATH"
-echo "  monitor = eDP-1" >>"$CONFIG_PATH"
-echo "  path = $WALLPAPER" >>"$CONFIG_PATH"
-echo "  fit_mode = cover" >>"$CONFIG_PATH"
-echo "}" >>"$CONFIG_PATH"
+mkdir -p "$(dirname "$CONFIG_PATH")"
+{
+  echo "splash = false"
+  echo "preload = $WALLPAPER"
+  echo "wallpaper = , $WALLPAPER"
+} >"$CONFIG_PATH"
+
+pkill hyprpaper 2>/dev/null || true
+hyprctl dispatch exec hyprpaper
+notify-send -a "hyprpaper" "Wallpaper changed" -i "$WALLPAPER" || true

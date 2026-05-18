@@ -1,482 +1,369 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
-echo "==> Installing core packages..."
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+DOTS_DIR="${DOTS_DIR:-$SCRIPT_DIR}"
+BACKUP_DIR="${BACKUP_DIR:-$HOME/.config_backup}"
+LOCAL_BIN="${LOCAL_BIN:-$HOME/.local/bin}"
+DRY_RUN=0
+ASSUME_YES=0
+INSTALL_PACKAGES=0
 
-yay -S --noconfirm \
-  pacseek \
-  zoxide \
-  fzf \
-  unzip \
-  starship \
-  atuin \
-  eza \
-  acpi \
-  playerctl
-
-sudo pacman -S --noconfirm \
-  dunst \
-  libnotify \
-  ttf-iosevka-nerd \
-  wget \
-  waybar \
-  wl-clipboard \
-  xdg-desktop-portal-hyprland \
-  xdg-desktop-portal \
-  brightnessctl \
-  pavucontrol \
-  tmux \
-  slurp \
-  grim \
-  hyprlock \
+PACMAN_PACKAGES=(
+  brightnessctl
+  dunst
+  grim
+  hyprland
+  hyprlock
+  hyprpaper
+  hyprpicker
+  libnotify
   pamixer
+  pavucontrol
+  rofi-wayland
+  slurp
+  tmux
+  ttf-iosevka-nerd
+  waybar
+  wget
+  wl-clipboard
+  xdg-desktop-portal
+  xdg-desktop-portal-hyprland
+)
 
-if [ "$EUID" -eq 0 ]; then
-  echo "❌ Do not run this script as root or with sudo."
+AUR_PACKAGES=(
+  acpi
+  atuin
+  eza
+  fzf
+  pacseek
+  playerctl
+  starship
+  unzip
+  zoxide
+)
+
+CONFIG_MODULES=(
+  hypr
+  waybar
+  rofi
+  dunst
+  yazi
+  fish
+  cava
+  kitty
+  fastfetch
+  starship
+  hypridle
+)
+
+usage() {
+  cat <<EOF
+Usage: ./setup.sh [options]
+
+Options:
+  -n, --dry-run          Print the planned actions without changing files.
+  -y, --yes              Answer yes to prompts.
+      --install-packages Offer to install pacman/yay packages.
+  -h, --help             Show this help.
+
+Environment overrides:
+  DOTS_DIR=/path/to/hyprdots
+  BACKUP_DIR=/path/to/backups
+  LOCAL_BIN=/path/to/bin
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  -n | --dry-run)
+    DRY_RUN=1
+    ;;
+  -y | --yes)
+    ASSUME_YES=1
+    ;;
+  --install-packages)
+    INSTALL_PACKAGES=1
+    ;;
+  -h | --help)
+    usage
+    exit 0
+    ;;
+  *)
+    echo "Unknown option: $1" >&2
+    usage
+    exit 1
+    ;;
+  esac
+  shift
+done
+
+if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
+  echo "Do not run this script as root or with sudo."
   echo "Run it as your normal user. The script will ask for sudo when needed."
   exit 1
 fi
 
-# Text colors
-RED="\e[31m"
-GREEN="\e[32m"
-YELLOW="\e[33m"
-BLUE="\e[34m"
-MAGENTA="\e[35m"
-CYAN="\e[36m"
-WHITE="\e[97m"
-RESET="\e[0m"
-
-# Bold variants
-BOLD="\e[1m"
-BRED="\e[1;31m"
-BGREEN="\e[1;32m"
-BYELLOW="\e[1;33m"
-BBLUE="\e[1;34m"
-
 cecho() {
-  local color=$1
+  local color="$1"
   shift
+
   case "$color" in
-  RED) echo -e "\e[31m$*\e[0m" ;;
-  GREEN) echo -e "\e[32m$*\e[0m" ;;
-  YELLOW) echo -e "\e[33m$*\e[0m" ;;
-  BLUE) echo -e "\e[34m$*\e[0m" ;;
-  MAGNETA) echo -e "\e[35m$*\e[0m" ;;
-  CYAN) echo -e "\e[36m$*\e[0m" ;;
-  *) echo "$@" ;; # Default no color
+  RED) printf '\033[31m%s\033[0m\n' "$*" ;;
+  GREEN) printf '\033[32m%s\033[0m\n' "$*" ;;
+  YELLOW) printf '\033[33m%s\033[0m\n' "$*" ;;
+  BLUE) printf '\033[34m%s\033[0m\n' "$*" ;;
+  MAGENTA) printf '\033[35m%s\033[0m\n' "$*" ;;
+  CYAN) printf '\033[36m%s\033[0m\n' "$*" ;;
+  *) printf '%s\n' "$*" ;;
   esac
 }
 
-BACKUP_DIR="$HOME/.config_backup"
-LOCAL_BIN="$HOME/.local/bin"
-FONT_DIR="$HOME/.local/share/fonts"
-DOTS_DIR="$HOME/hyprdots"
+confirm() {
+  local prompt="$1"
 
-setup_hypr() {
-  local BACKUP_DIR="$HOME/.config_backup"
-  local EXISTING_CONFIG="$HOME/.config/hypr"
-  local NEW_CONFIG_SOURCE="$HOME/hyprdots/hypr"
-
-  read -p $'\e[34mDo you want to set Hyprland config (y/n): \e[0m' ans
-
-  if [[ "$ans" != "y" ]]; then
-    cecho RED "Skipped Hyprland setup."
-    return
+  if [[ "$ASSUME_YES" -eq 1 ]]; then
+    return 0
   fi
 
-  cecho GREEN "Starting Hyprland config setup..."
-
-  if ! command -v Hyprland &>/dev/null; then
-    cecho YELLOW "Installing Hyprland and Wayland..."
-    if ! sudo pacman -S --needed --noconfirm hyprland wayland; then
-      cecho RED "Package installation failed. Aborting."
-      return 1
-    fi
-  else
-    cecho GREEN "Hyprland already installed."
-  fi
-
-  mkdir -p "$BACKUP_DIR"
-
-  if [[ -d "$EXISTING_CONFIG" ]]; then
-    local timestamp=$(date +%s)
-    mv "$EXISTING_CONFIG" "$BACKUP_DIR/hypr_$timestamp"
-    cecho RED "Existing Hyprland config backed up to $BACKUP_DIR/hypr_$timestamp"
-  else
-    cecho YELLOW "No existing Hyprland config to backup."
-  fi
-
-  if [[ -d "$NEW_CONFIG_SOURCE" ]]; then
-    cp -r "$NEW_CONFIG_SOURCE" "$EXISTING_CONFIG"
-    cecho GREEN "Hyprland config successfully moved to ~/.config/hypr"
-  else
-    cecho RED "New config directory not found at $NEW_CONFIG_SOURCE. Aborting."
-    return 1
-  fi
-
-  cecho GREEN "Hyprland config setup complete."
+  local answer
+  read -r -p "$prompt [y/N]: " answer
+  [[ "$answer" == "y" || "$answer" == "Y" || "$answer" == "yes" || "$answer" == "YES" ]]
 }
 
-setup_waybar() {
-  local BACKUP_DIR="$HOME/.config_backup"
-  local EXISTING_CONFIG="$HOME/.config/waybar"
-  local NEW_CONFIG_SOURCE="$HOME/hyprdots/waybar"
-
-  read -p $'\e[34mDo you want to set waybar config (y/n): \e[0m' ans
-
-  if [[ "$ans" != "y" ]]; then
-    cecho RED "Skipped Waybar setup."
-    return
-  fi
-
-  cecho GREEN "Starting Waybar config setup..."
-
-  if ! command -v waybar &>/dev/null; then
-    cecho YELLOW "Installing Waybar..."
-    if ! sudo pacman -S --needed --noconfirm waybar; then
-      cecho RED "Package installation failed. Aborting."
-      return 1
-    fi
+run() {
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf '[dry-run]'
+    printf ' %q' "$@"
+    printf '\n'
   else
-    cecho GREEN "Waybar already installed."
-  fi
-
-  mkdir -p "$BACKUP_DIR"
-
-  if [[ -d "$EXISTING_CONFIG" ]]; then
-    local timestamp=$(date +%s)
-    mv "$EXISTING_CONFIG" "$BACKUP_DIR/waybar_$timestamp"
-    cecho RED "Existing Waybar config backed up to $BACKUP_DIR/waybar_$timestamp"
-  else
-    cecho YELLOW "No existing Waybar config to backup."
-  fi
-
-  if [[ -d "$NEW_CONFIG_SOURCE" ]]; then
-    cp -r "$NEW_CONFIG_SOURCE" "$EXISTING_CONFIG"
-    cecho GREEN "Waybar config successfully moved to ~/.config/waybar"
-    chmod +x $EXISTING_CONFIG/scripts/*
-    touch ~/.config/waybar/scripts/.env
-    echo "GITHUB_USERNAME=" >>~/.config/waybar/scripts/.env
-    echo "GITHUB_PAT=" >>~/.config/waybar/scripts/.env
-
-    cecho CYAN "For Setting up Github Weekly Waybar Module, Consider this : https://github.com/ad1822/weekly-github-waybar-module"
-  else
-    cecho RED "New config directory not found at $NEW_CONFIG_SOURCE. Aborting."
-    return 1
-  fi
-
-  cecho GREEN "Waybar config setup complete."
-}
-
-setup_dunst() {
-  local BACKUP_DIR="$HOME/.config_backup"
-  local EXISTING_CONFIG="$HOME/.config/dunst"
-  local NEW_CONFIG_SOURCE="$HOME/hyprdots/dunst"
-  local LOCAL_BIN="$HOME/.local/bin"
-  local DOTFILES_BIN="$HOME/hyprdots/bin"
-
-  read -p $'\e[34mDo you want to set dunst config (y/n): \e[0m' ans
-  if [[ "$ans" != "y" ]]; then
-    cecho RED "Skipped Dunst setup."
-    return
-  fi
-
-  cecho GREEN "Starting Dunst config setup..."
-
-  # Install Dunst and dependencies
-  cecho YELLOW "Installing Dunst and libnotify..."
-  if ! sudo pacman -S --needed --noconfirm dunst libnotify; then
-    cecho RED "Package installation failed. Aborting."
-    return 1
-  fi
-
-  # Create local bin directory if needed
-  mkdir -p "$LOCAL_BIN"
-
-  # Copy bin scripts if source exists
-  if [[ -d "$DOTFILES_BIN" ]]; then
-    cp -u "$DOTFILES_BIN"/* "$LOCAL_BIN"/ 2>/dev/null
-    chmod +x "$LOCAL_BIN"/* 2>/dev/null
-    cecho GREEN "Copied and set executable permissions for scripts in ~/.local/bin"
-  else
-    cecho YELLOW "No scripts found at $DOTFILES_BIN"
-  fi
-
-  # Create backup directory
-  mkdir -p "$BACKUP_DIR"
-
-  # Backup existing config
-  if [[ -d "$EXISTING_CONFIG" ]]; then
-    local timestamp
-    timestamp=$(date +%s)
-    mv "$EXISTING_CONFIG" "$BACKUP_DIR/dunst_$timestamp"
-    cecho RED "Existing Dunst config backed up to $BACKUP_DIR/dunst_$timestamp"
-  else
-    cecho YELLOW "No existing Dunst config to backup."
-  fi
-
-  # Copy new config
-  if [[ -d "$NEW_CONFIG_SOURCE" ]]; then
-    cp -r "$NEW_CONFIG_SOURCE" "$EXISTING_CONFIG"
-    cecho GREEN "Dunst config set at ~/.config/dunst"
-  else
-    cecho RED "New config not found at $NEW_CONFIG_SOURCE. Aborting."
-    return 1
-  fi
-
-  cecho GREEN "Dunst setup complete."
-}
-
-setup_yazi() {
-  local BACKUP_DIR="$HOME/.config_backup"
-  local EXISTING_CONFIG="$HOME/.config/yazi"
-  local NEW_CONFIG_SOURCE="$HOME/hyprdots/yazi"
-
-  read -p $'\e[34mDo you want to set Yazi config (y/n): \e[0m' ans
-
-  if [[ "$ans" != "y" ]]; then
-    cecho RED "Skipped Yazi setup."
-    return
-  fi
-
-  cecho GREEN "Starting Yazi config setup..."
-
-  if ! command -v yazi &>/dev/null; then
-    cecho YELLOW "Installing Yazi..."
-    if ! sudo pacman -S --needed --noconfirm yazi; then
-      cecho RED "Package installation failed. Aborting."
-      return 1
-    fi
-  else
-    cecho GREEN "Yazi already installed."
-  fi
-
-  mkdir -p "$BACKUP_DIR"
-
-  if [[ -d "$EXISTING_CONFIG" ]]; then
-    local timestamp=$(date +%s)
-    mv "$EXISTING_CONFIG" "$BACKUP_DIR/yazi_$timestamp"
-    cecho RED "Existing Yazi config backed up to $BACKUP_DIR/yazi_$timestamp"
-  else
-    cecho YELLOW "No existing Yazi config to backup."
-  fi
-
-  if [[ -d "$NEW_CONFIG_SOURCE" ]]; then
-    cp -r "$NEW_CONFIG_SOURCE" "$EXISTING_CONFIG"
-    cecho GREEN "Yazi config successfully moved to ~/.config/yazi"
-  else
-    cecho RED "New config directory not found at $NEW_CONFIG_SOURCE. Aborting."
-    return 1
-  fi
-
-  cecho GREEN "Installing Yazi Plugins"
-  ya pkg install
-
-  cecho GREEN "Yazi config setup complete."
-}
-
-setup_rofi() {
-  local BACKUP_DIR="$HOME/.config_backup"
-  local EXISTING_CONFIG="$HOME/.config/rofi"
-  local NEW_CONFIG_SOURCE="$HOME/hyprdots/rofi"
-
-  read -p $'\e[34mDo you want to set Rofi config (y/n): \e[0m' ans
-  if [[ "$ans" != "y" ]]; then
-    cecho RED "Skipped Rofi setup."
-    return
-  fi
-
-  cecho GREEN "Starting Rofi config setup..."
-
-  # Check and install Rofi
-  if ! command -v rofi &>/dev/null; then
-    cecho YELLOW "Rofi not found. Installing..."
-    if ! sudo pacman -S --needed --noconfirm rofi; then
-      cecho RED "Failed to install Rofi. Aborting."
-      return 1
-    fi
-  else
-    cecho GREEN "Rofi is already installed."
-  fi
-
-  # Ensure backup dir exists
-  mkdir -p "$BACKUP_DIR"
-
-  # Backup existing config if present
-  if [[ -d "$EXISTING_CONFIG" ]]; then
-    local timestamp=$(date +%s)
-    mv "$EXISTING_CONFIG" "$BACKUP_DIR/rofi_$timestamp"
-    cecho RED "Existing Rofi config backed up to $BACKUP_DIR/rofi_$timestamp"
-  else
-    cecho YELLOW "No existing Rofi config found to backup."
-  fi
-
-  # Copy new config
-  if [[ -d "$NEW_CONFIG_SOURCE" ]]; then
-    cp -r "$NEW_CONFIG_SOURCE" "$EXISTING_CONFIG"
-    cecho GREEN "Rofi config successfully copied to ~/.config/rofi"
-    chmod +x ~/.config/rofi/*
-  else
-    cecho RED "New config not found at $NEW_CONFIG_SOURCE. Aborting."
-    return 1
-  fi
-
-  cecho GREEN "Rofi config setup complete."
-}
-
-setup_yay() {
-  read -p $'\e[34mDo you want to install yay AUR helper (y/n): \e[0m' ans
-  if [[ "$ans" != "y" ]]; then
-    cecho RED "Skipped yay installation."
-    return
-  fi
-
-  if command -v yay &>/dev/null; then
-    cecho GREEN "✔ yay is already installed."
-    return
-  fi
-
-  cecho GREEN "Installing yay AUR helper..."
-
-  sudo pacman -S --needed --noconfirm git base-devel || {
-    cecho RED "Failed to install required packages. Aborting."
-    return 1
-  }
-
-  local YAY_DIR
-  YAY_DIR=$(mktemp -d)
-
-  git clone https://aur.archlinux.org/yay.git "$YAY_DIR" || {
-    cecho RED "Failed to clone yay repository."
-    return 1
-  }
-
-  cd "$YAY_DIR" || return 1
-  makepkg -si --noconfirm || {
-    cecho RED "yay build failed."
-    return 1
-  }
-
-  cd - >/dev/null
-  rm -rf "$YAY_DIR"
-
-  cecho GREEN "yay installation complete."
-}
-
-setup_fish() {
-  local BACKUP_DIR="$HOME/.config_backup"
-  local EXISTING_CONFIG="$HOME/.config/fish"
-  local NEW_CONFIG_SOURCE="$HOME/hyprdots/fish"
-
-  read -p $'\e[34mDo you want to set up Fish shell config (y/n): \e[0m' ans
-
-  if [[ "$ans" != "y" ]]; then
-    echo -e "\e[31mSkipped Fish shell setup.\e[0m"
-    return
-  fi
-
-  echo -e "\e[32mStarting Fish shell config setup...\e[0m"
-
-  # Install Fish if not installed
-  if ! command -v fish &>/dev/null; then
-    echo -e "\e[33mInstalling Fish shell...\e[0m"
-    if ! sudo pacman -S --needed --noconfirm fish; then
-      echo -e "\e[31mFish installation failed. Aborting.\e[0m"
-      return 1
-    fi
-  else
-    echo -e "\e[32mFish shell already installed.\e[0m"
-  fi
-
-  setup_wakafetch() {
-  read -p $'\e[34mDo you want to install wakafetch-sqlite (y/n): \e[0m' ans
-  if [[ "$ans" != "y" ]]; then
-    cecho RED "Skipped wakafetch-sqlite setup."
-    return
-  fi
-
-  cecho GREEN "Installing wakafetch-sqlite..."
-
-  if wget -q "https://raw.githubusercontent.com/ad1822/wakafetch-sqlite/dev/wakafetch-sqlite" -O /tmp/wakafetch-sqlite; then
-    sudo mv /tmp/wakafetch-sqlite /usr/bin/wakafetch-sqlite
-    sudo chmod +x /usr/bin/wakafetch-sqlite
-    cecho GREEN "wakafetch-sqlite installation complete"
-  else
-    cecho RED "wakafetch-sqlite installation failed. Aborting"
-    return 1
+    "$@"
   fi
 }
 
-  # Backup existing config
-  mkdir -p "$BACKUP_DIR"
-  if [[ -d "$EXISTING_CONFIG" ]]; then
-    local timestamp
-    timestamp=$(date +%s)
-    mv "$EXISTING_CONFIG" "$BACKUP_DIR/fish_$timestamp"
-    echo -e "\e[31mExisting Fish config backed up to $BACKUP_DIR/fish_$timestamp\e[0m"
-  else
-    echo -e "\e[33mNo existing Fish config to backup.\e[0m"
-  fi
-
-  # Copy new config
-  if [[ -d "$NEW_CONFIG_SOURCE" ]]; then
-    cp -r "$NEW_CONFIG_SOURCE" "$EXISTING_CONFIG"
-    echo -e "\e[32mFish config successfully moved to ~/.config/fish\e[0m"
-  else
-    echo -e "\e[31mNew config directory not found at $NEW_CONFIG_SOURCE. Aborting.\e[0m"
-    return 1
-  fi
-
-  # Set Fish as default shell
-  if [[ "$SHELL" != "/usr/bin/fish" ]]; then
-    echo -e "\e[32mSetting Fish as default shell...\e[0m"
-    chsh -s /usr/bin/fish
-  fi
-
-  echo -e "\e[32mFish shell setup complete. Fish is now your default shell.\e[0m"
+timestamp() {
+  date +"%Y%m%d-%H%M%S"
 }
 
-setup_other_things() {
-  read -p $'\e[34mDo you want to backup and replace other configs (cava, kitty, fastfetch, starship etc.)? (y/n): \e[0m' ans
-  if [[ "$ans" != "y" ]]; then
-    cecho RED "Skipped other configs setup."
-    return
+backup_path_for() {
+  local module="$1"
+  printf '%s/%s_%s' "$BACKUP_DIR" "$module" "$(timestamp)"
+}
+
+copy_config_module() {
+  local module="$1"
+  local source="$DOTS_DIR/$module"
+  local target="$HOME/.config/$module"
+
+  if [[ ! -d "$source" ]]; then
+    cecho YELLOW "Skipping $module: source not found at $source"
+    return 0
   fi
 
-  CONFIGS="cava kitty fastfetch pacseek hypridle starship"
-  BACKUP_DIR="$HOME/.config_backup"
+  if ! confirm "Install $module config to $target?"; then
+    cecho YELLOW "Skipped $module."
+    return 0
+  fi
 
-  cecho GREEN "==> Backing up and replacing config files..."
-  mkdir -p "$BACKUP_DIR" || {
-    cecho RED "Failed to create backup directory: $BACKUP_DIR"
-    return 1
-  }
+  cecho CYAN "Installing $module"
+  run mkdir -p "$BACKUP_DIR" "$HOME/.config"
 
-  for dir in $CONFIGS; do
-    SRC="$HOME/.config/$dir"
-    if [ -d "$SRC" ]; then
-      cecho YELLOW "=> Backing up $dir to $BACKUP_DIR"
-      cp -r "$SRC" "$BACKUP_DIR/" && cecho GREEN "✓ $dir backed up."
-      rm -rf "$SRC" && cecho GREEN "✓ $dir removed from ~/.config."
+  if [[ -e "$target" || -L "$target" ]]; then
+    local backup
+    backup="$(backup_path_for "$module")"
+    cecho YELLOW "Backing up $target to $backup"
+    run mv "$target" "$backup"
+  fi
+
+  run cp -a "$source" "$target"
+  post_install_module "$module" "$target"
+  cecho GREEN "$module config installed."
+}
+
+make_shell_scripts_executable() {
+  local target="$1"
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    echo "[dry-run] chmod +x shell scripts under $target"
+    return 0
+  fi
+
+  find "$target" -type f \( -name "*.sh" -o -perm -u=x \) -exec chmod +x {} +
+}
+
+ensure_waybar_env() {
+  local env_file="$1/scripts/.env"
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    if [[ -f "$env_file" ]]; then
+      echo "[dry-run] preserve existing $env_file"
     else
-      cecho BLUE "=> Skipped $dir: Not found in ~/.config"
+      echo "[dry-run] create $env_file with GITHUB_USERNAME and GITHUB_PAT placeholders"
     fi
+    return 0
+  fi
+
+  if [[ ! -f "$env_file" ]]; then
+    cat >"$env_file" <<EOF
+GITHUB_USERNAME=
+GITHUB_PAT=
+EOF
+  fi
+}
+
+copy_local_bin_scripts() {
+  local source="$DOTS_DIR/bin"
+
+  if [[ ! -d "$source" ]]; then
+    cecho YELLOW "No local bin scripts found at $source"
+    return 0
+  fi
+
+  run mkdir -p "$LOCAL_BIN"
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    echo "[dry-run] copy scripts from $source to $LOCAL_BIN"
+    return 0
+  fi
+
+  cp -a "$source"/. "$LOCAL_BIN"/
+  find "$LOCAL_BIN" -maxdepth 1 -type f -exec chmod +x {} +
+}
+
+post_install_module() {
+  local module="$1"
+  local target="$2"
+
+  case "$module" in
+  waybar)
+    make_shell_scripts_executable "$target"
+    ensure_waybar_env "$target"
+    cecho CYAN "Waybar GitHub module uses $target/scripts/.env when enabled."
+    ;;
+  rofi)
+    make_shell_scripts_executable "$target"
+    ;;
+  dunst)
+    copy_local_bin_scripts
+    ;;
+  yazi)
+    if command -v ya >/dev/null 2>&1 && confirm "Install Yazi plugins with 'ya pkg install'?"; then
+      run ya pkg install
+    fi
+    ;;
+  fish)
+    if command -v fish >/dev/null 2>&1 && confirm "Set Fish as your default shell?"; then
+      run chsh -s "$(command -v fish)"
+    fi
+    ;;
+  esac
+}
+
+install_pacman_packages() {
+  if ! command -v pacman >/dev/null 2>&1; then
+    cecho YELLOW "pacman not found; skipping pacman package install."
+    return 0
+  fi
+
+  if confirm "Install core pacman packages?"; then
+    run sudo pacman -S --needed --noconfirm "${PACMAN_PACKAGES[@]}"
+  fi
+}
+
+install_yay() {
+  if command -v yay >/dev/null 2>&1; then
+    cecho GREEN "yay is already installed."
+    return 0
+  fi
+
+  if ! command -v pacman >/dev/null 2>&1; then
+    cecho YELLOW "pacman not found; cannot install yay."
+    return 0
+  fi
+
+  if ! confirm "Install yay AUR helper?"; then
+    cecho YELLOW "Skipped yay installation."
+    return 0
+  fi
+
+  run sudo pacman -S --needed --noconfirm git base-devel
+
+  local yay_dir
+  yay_dir="$(mktemp -d)"
+  run git clone https://aur.archlinux.org/yay.git "$yay_dir"
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    echo "[dry-run] build yay in $yay_dir"
+    echo "[dry-run] remove $yay_dir"
+    return 0
+  fi
+
+  (cd "$yay_dir" && makepkg -si --noconfirm)
+  rm -rf "$yay_dir"
+}
+
+install_aur_packages() {
+  if ! command -v yay >/dev/null 2>&1; then
+    cecho YELLOW "yay not found; skipping AUR package install."
+    return 0
+  fi
+
+  if confirm "Install helper packages with yay?"; then
+    run yay -S --needed --noconfirm "${AUR_PACKAGES[@]}"
+  fi
+}
+
+setup_wakafetch() {
+  if ! confirm "Install wakafetch-sqlite to /usr/bin?"; then
+    cecho YELLOW "Skipped wakafetch-sqlite."
+    return 0
+  fi
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    echo "[dry-run] download wakafetch-sqlite and install it to /usr/bin"
+    return 0
+  fi
+
+  local temp_file
+  temp_file="$(mktemp)"
+
+  if wget -q "https://raw.githubusercontent.com/ad1822/wakafetch-sqlite/dev/wakafetch-sqlite" -O "$temp_file"; then
+    sudo mv "$temp_file" /usr/bin/wakafetch-sqlite
+    sudo chmod +x /usr/bin/wakafetch-sqlite
+    cecho GREEN "wakafetch-sqlite installed."
+  else
+    rm -f "$temp_file"
+    cecho RED "wakafetch-sqlite download failed."
+    return 1
+  fi
+}
+
+main() {
+  cecho CYAN "Hyprdots safe installer"
+  cecho BLUE "Source: $DOTS_DIR"
+  cecho BLUE "Backup: $BACKUP_DIR"
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    cecho MAGENTA "Dry-run mode: no files will be changed."
+  fi
+
+  run mkdir -p "$HOME/Pictures/Wallpaper"
+
+  if [[ "$INSTALL_PACKAGES" -eq 1 ]]; then
+    install_yay
+    install_pacman_packages
+    install_aur_packages
+  else
+    cecho YELLOW "Package install skipped. Re-run with --install-packages to enable it."
+  fi
+
+  for module in "${CONFIG_MODULES[@]}"; do
+    copy_config_module "$module"
   done
 
-  cecho GREEN "All selected configs processed. Backup saved at: $BACKUP_DIR"
+  setup_wakafetch
+  cecho GREEN "Setup complete."
 }
 
-cecho CYAN "==> Creating wallpaper directory..."
-mkdir -p "$HOME/Pictures/Wallpaper"
-
-setup_yay
-setup_hypr
-setup_waybar
-setup_dunst
-setup_yazi
-setup_rofi
-setup_fish
-setup_wakafetch
-setup_other_things
+main "$@"

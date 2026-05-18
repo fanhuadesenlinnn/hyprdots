@@ -1,21 +1,36 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 
-if [ $(pgrep -c hyprpaper) -ne 0 ]; then
-    hyprctl hyprpaper unload all
-    killall hyprpaper
+set -euo pipefail
+
+TARGET="${WALLPAPER_DIR:-$HOME/Pictures/Wallpaper/Catppuccin}"
+CONFIG_PATH="$HOME/.config/hypr/hyprpaper.conf"
+
+if [[ ! -d "$TARGET" ]]; then
+  notify-send -t 4000 "Wallpaper" "Directory not found: $TARGET" || true
+  exit 1
 fi
 
-TARGET="$HOME/Pictures/Wallpaper/Catppuccin"
-WALLPAPER=$(find "$TARGET" -type f -regex '.*\.\(jpg\|jpeg\|png\|webp\)' | shuf -n 1)
-WALLPAPER_NAME=$(basename $WALLPAPER)
+WALLPAPER="$(
+  find "$TARGET" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) |
+    shuf -n 1
+)"
+
+if [[ -z "$WALLPAPER" ]]; then
+  notify-send -t 4000 "Wallpaper" "No images found in $TARGET" || true
+  exit 1
+fi
+
+WALLPAPER_NAME="$(basename "$WALLPAPER")"
 gowall convert "$WALLPAPER" -t mocha
-wait=$!
 CAT_WALLPAPER="$HOME/Pictures/gowall/$WALLPAPER_NAME"
-killall chrome
 
+mkdir -p "$(dirname "$CONFIG_PATH")"
+{
+  echo "splash = false"
+  echo "preload = $CAT_WALLPAPER"
+  echo "wallpaper = , $CAT_WALLPAPER"
+} >"$CONFIG_PATH"
 
-CONFIG_PATH="$HOME/.config/hypr/hyprpaper.conf"
-echo "preload = $CAT_WALLPAPER" > "$CONFIG_PATH"
-echo "wallpaper = eDP-1, $CAT_WALLPAPER" >> "$CONFIG_PATH"
-echo "splash = off" >> "$CONFIG_PATH"
-echo "ipc = off" >> "$CONFIG_PATH"
+pkill hyprpaper 2>/dev/null || true
+hyprctl dispatch exec hyprpaper
+notify-send -a "hyprpaper" "Wallpaper changed" -i "$CAT_WALLPAPER" || true

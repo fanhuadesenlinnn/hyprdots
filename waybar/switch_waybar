@@ -1,4 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 
 OLD_STYLE=style_old.css
 NEW_STYLE=style_new.css
@@ -8,9 +12,9 @@ OLD_CONFIG=config_old.jsonc
 NEW_CONFIG=config_new.jsonc
 CONFIG=config.jsonc
 
-EXISTING_STYLE=$(readlink "$STYLE")
+EXISTING_STYLE=$(readlink "$STYLE" 2>/dev/null || true)
 
-killall waybar
+pkill waybar 2>/dev/null || true
 
 [[ ! -e $OLD_STYLE || ! -e $NEW_STYLE || ! -e $OLD_CONFIG || ! -e $NEW_CONFIG ]] && {
   echo "Missing style or config files."

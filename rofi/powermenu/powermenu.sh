@@ -1,103 +1,68 @@
 #!/usr/bin/env bash
 
-# Current Theme
-dir="$HOME/.config/rofi/powermenu/"
-theme='style'
+set -euo pipefail
 
-# CMDs
-uptime="$(uptime -p | sed -e 's/up //g' | sed -e 's/hour/hr/g' | sed -e 's/minute/min/g')"
+dir="$HOME/.config/rofi/powermenu"
+theme="style"
+uptime_text="$(uptime -p | sed -e 's/up //g' -e 's/hour/hr/g' -e 's/minute/min/g')"
 
-# # Options
-# hibernate=' hibernate'
-# shutdown=' Shutdown'
-# reboot='⟳ Reboot'
-# lock=' Lock'
-# suspend=' Suspend'
-# logout=' Logout'
-# yes=' Yes'
-# no=' No'
-# Options
-hibernate='Hibernate'
-shutdown='Shutdown'
-reboot='Reboot'
-lock='Lock'
-suspend='Suspend'
-logout='Logout'
-yes='yes'
-no='no'
+hibernate="Hibernate"
+shutdown="Shutdown"
+reboot="Reboot"
+lock="Lock"
+suspend="Suspend"
+logout="Logout"
+yes="yes"
+no="no"
 
-# Rofi CMD
 rofi_cmd() {
   rofi -dmenu \
-    -p " $USER" \
-    -mesg " Uptime: $uptime" \
-    -theme ${dir}/${theme}.rasi
+    -p "$USER" \
+    -mesg "Uptime: $uptime_text" \
+    -theme "$dir/$theme.rasi"
 }
 
-# Confirmation CMD
 confirm_cmd() {
   rofi -markup-rows -dmenu \
-    -p 'Confirmation' \
-    -mesg 'Are you Sure?' \
-    -theme ${dir}/confirmation.rasi
+    -p "Confirmation" \
+    -mesg "Are you sure?" \
+    -theme "$dir/confirmation.rasi"
 }
 
-# Ask for confirmation
 confirm_exit() {
-  echo -e "<span foreground='#a6e3a1'>$yes</span>\n<span foreground='#f38ba8'>$no</span>" | confirm_cmd
+  printf "<span foreground='#a6e3a1'>%s</span>\n<span foreground='#f38ba8'>%s</span>\n" "$yes" "$no" | confirm_cmd
 }
 
-# Pass variables to rofi dmenu
 run_rofi() {
-  echo -e "$shutdown\n$reboot\n$lock\n$suspend\n$hibernate\n$logout" | rofi_cmd
+  printf "%s\n%s\n%s\n%s\n%s\n%s\n" "$shutdown" "$reboot" "$lock" "$suspend" "$hibernate" "$logout" | rofi_cmd
 }
 
-# Execute Command
-run_cmd() {
+run_confirmed() {
+  local action="$1"
+  local selected
   selected="$(confirm_exit)"
-  echo "$selected"
-  if [[ "$selected" =~ "$yes" ]]; then
-    if [[ $1 == '--shutdown' ]]; then
-      systemctl poweroff
-    elif [[ $1 == '--reboot' ]]; then
-      systemctl reboot
-    elif [[ $1 == '--hibernate' ]]; then
-      systemctl suspend
-    elif [[ $1 == '--suspend' ]]; then
-      mpc -q pause
-      amixer set Master mute
-      systemctl suspend
-    elif [[ $1 == '--logout' ]]; then
-      hyprctl dispatch exit
-    fi
-  else
-    exit 0
-  fi
+
+  [[ "$selected" =~ $yes ]] || exit 0
+
+  case "$action" in
+  --shutdown) systemctl poweroff ;;
+  --reboot) systemctl reboot ;;
+  --hibernate) systemctl hibernate ;;
+  --suspend)
+    command -v mpc >/dev/null 2>&1 && mpc -q pause || true
+    command -v amixer >/dev/null 2>&1 && amixer set Master mute || true
+    systemctl suspend
+    ;;
+  --logout) hyprctl dispatch exit ;;
+  esac
 }
 
-# Actions
 chosen="$(run_rofi)"
-case ${chosen} in
-$shutdown)
-  run_cmd --shutdown
-  ;;
-$reboot)
-  run_cmd --reboot
-  ;;
-$hibernate)
-  run_cmd --hibernate
-  ;;
-$lock)
-  if [[ -x '/usr/bin/betterlockscreen' ]]; then
-    betterlockscreen -l
-  elif [[ -x '/usr/bin/i3lock' ]]; then
-    i3lock
-  fi
-  ;;
-$suspend)
-  run_cmd --suspend
-  ;;
-$logout)
-  run_cmd --logout
-  ;;
+case "$chosen" in
+"$shutdown") run_confirmed --shutdown ;;
+"$reboot") run_confirmed --reboot ;;
+"$hibernate") run_confirmed --hibernate ;;
+"$lock") hyprlock ;;
+"$suspend") run_confirmed --suspend ;;
+"$logout") run_confirmed --logout ;;
 esac

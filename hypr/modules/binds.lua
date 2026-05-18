@@ -47,7 +47,7 @@ bind(
 bind(
 	mods,
 	"L",
-	'sh -c \'~/work/side/vim-screenshot/vim-screenshot && sleep 1 && wl-copy --type image/png < /tmp/photo.png && notify-send -w "Screenshot" "Screenshot copied to clipboard" -i /tmp/photo.png\''
+	"hyprlock"
 )
 bind(
 	moda,

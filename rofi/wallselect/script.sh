@@ -1,33 +1,34 @@
-j!/bin/bash
+#!/usr/bin/env bash
 
-WALL_DIR="$HOME/Pictures/Wallpaper"
+set -euo pipefail
 
-# SELECTED=$(find ~/Pictures/Wallpaper -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" \) |
-#   while read -r img; do echo -en "$img\0icon\x1f$img\n"; done |
-#   rofi -dmenu -show-icons -theme "$HOME/.config/rofi/wallselect/style.rasi")
-
-SELECTED=$(find ~/Pictures/Wallpaper \
-  -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" \) |
-  shuf |
-  while read -r img; do
-    echo -en "$img\0icon\x1f$img\n"
-  done |
-  rofi -dmenu -show-icons -theme "$HOME/.config/rofi/wallselect/style.rasi")
-
-# echo $SELECTED
-
-if [ $(pgrep -c hyprpaper) -ne 0 ] && [ -n "$SELECTED" ]; then
-  hyprctl hyprpaper unload all
-  killall hyprpaper
-fi
-
+WALL_DIR="${WALLPAPER_DIR:-$HOME/Pictures/Wallpaper}"
+THEME="$HOME/.config/rofi/wallselect/style.rasi"
 CONFIG_PATH="$HOME/.config/hypr/hyprpaper.conf"
 
-echo "splash = false" >"$CONFIG_PATH"
-echo "wallpaper {" >>"$CONFIG_PATH"
-echo "  monitor = eDP-1" >>"$CONFIG_PATH"
-echo "  path = $SELECTED" >>"$CONFIG_PATH"
-echo "  fit_mode = cover" >>"$CONFIG_PATH"
-echo "}" >>"$CONFIG_PATH"
+if [[ ! -d "$WALL_DIR" ]]; then
+  notify-send -t 4000 "Wallpaper" "Directory not found: $WALL_DIR" || true
+  exit 1
+fi
 
-hyprpaper &
+selected="$(
+  find "$WALL_DIR" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) |
+    shuf |
+    while read -r img; do
+      printf '%s\0icon\x1f%s\n' "$img" "$img"
+    done |
+    rofi -dmenu -show-icons -theme "$THEME"
+)"
+
+[[ -z "$selected" ]] && exit 0
+
+mkdir -p "$(dirname "$CONFIG_PATH")"
+{
+  echo "splash = false"
+  echo "preload = $selected"
+  echo "wallpaper = , $selected"
+} >"$CONFIG_PATH"
+
+pkill hyprpaper 2>/dev/null || true
+hyprctl dispatch exec hyprpaper
+notify-send -a "hyprpaper" "Wallpaper changed" -i "$selected" || true

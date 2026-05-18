@@ -79,12 +79,14 @@ git checkout old-dotfiles
 - **Status Bar**: Waybar
 - **Notification Manager**: Dunst
 - **Browser**: Zen
+- **Terminal Emulator**: kitty
+- **File Manager**: yazi
+- **Notes**: Obsidian
 - **Color Picker**: hyprpicker
 - **Wallpaper Utility**: hyprpaper
 - **Screenshot Utility**: grim + slurp
 - **App Launcher**: Rofi
-- **Terminal Emulator**: kitty
-- **Shell**: Zsh
+- **Shell**: Fish
 - **Media Controls**: playerctl
 - **Power Management**: acpi
 - **Brightness Control**: brightnessctl
@@ -109,13 +111,25 @@ git checkout old-dotfiles
    cd ~/hyprdots
    ```
 
-3. **Run the setup script**:
+3. **Preview the setup script**:
+
+   ```sh
+   bash ./setup.sh --dry-run
+   ```
+
+4. **Run the setup script**:
 
    ```sh
    bash ./setup.sh
    ```
 
-4. **GTK Theme Setup**:
+   Package installation is opt-in. Use this when you also want the script to offer pacman/yay package installs:
+
+   ```sh
+   bash ./setup.sh --install-packages
+   ```
+
+5. **GTK Theme Setup**:
 
 - [Catppuccin Gtk theme](https://github.com/catppuccin/gtk/releases)
 
@@ -127,13 +141,14 @@ git checkout old-dotfiles
 
 > ### **Warning:**
 >
-> This setup script will **move your existing config files** (e.g., for Waybar, Kitty, Hyprland, etc.) to a backup folder at `~/.config_backup`. Then, it will copy the new configs from this repo into your `~/.config` directory.
+> This setup script will ask before installing each config module. Existing config directories are moved to a timestamped backup folder at `~/.config_backup`, then the selected configs are copied from this repo into `~/.config`.
 >
 > ### What this means:
 >
-> - Your current setup will be **replaced**.
-> - If you have customizations you care about, **back them up manually** or review the script before running.
-> - Fonts and themes will be installed system-wide in your `~/.local/share/fonts` directory.
+> - Use `bash ./setup.sh --dry-run` first to preview file changes.
+> - Package installation is skipped unless you pass `--install-packages`.
+> - Waybar's GitHub `.env` file is created only if it does not already exist.
+> - If you have customizations you care about, review the script and keep your own backup before running.
 
 ---
 
