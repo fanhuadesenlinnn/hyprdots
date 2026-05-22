@@ -78,7 +78,8 @@ git checkout old-dotfiles
 - **Window Manager**: Hyprland (Tiling)
 - **Status Bar**: Waybar
 - **Notification Manager**: Dunst
-- **Browser**: Zen
+- **Browser**: Google Chrome
+- **Input Method**: Fcitx5 + Rime
 - **Terminal Emulator**: kitty
 - **File Manager**: yazi
 - **Notes**: Obsidian
@@ -90,8 +91,8 @@ git checkout old-dotfiles
 - **Media Controls**: playerctl
 - **Power Management**: acpi
 - **Brightness Control**: brightnessctl
-- **Audio Management**: pamixer, PulseAudio
-- **Network Management**: NetworkManager (nmcli), iwd (iNet Wireless Daemon)
+- **Audio Management**: PipeWire, WirePlumber, pamixer
+- **Network Management**: NetworkManager (nmcli)
 
 > ℹ️ **For more detailed guidance**, check out [this](./Resources.md)
 
@@ -114,20 +115,18 @@ git checkout old-dotfiles
 3. **Preview the setup script**:
 
    ```sh
-   bash ./setup.sh --dry-run
+   bash ./setup.sh --dry-run --yes --install-packages
    ```
 
-4. **Run the setup script**:
+4. **Run the one-shot Arch desktop installer**:
 
    ```sh
-   bash ./setup.sh
+   bash ./setup.sh --yes --install-packages
    ```
 
-   Package installation is opt-in. Use this when you also want the script to offer pacman/yay package installs:
+   This path is intended for a minimal Arch Linux install with a normal user that has sudo access and working internet. It installs the Hyprland desktop packages, bootstraps yay for Chrome, copies the selected dotfiles, installs web app launchers, and enables NetworkManager, Bluetooth, SDDM, and PipeWire for the next boot.
 
-   ```sh
-   bash ./setup.sh --install-packages
-   ```
+   To copy dotfiles only without installing packages, run `bash ./setup.sh`.
 
 5. **GTK Theme Setup**:
 
@@ -147,6 +146,7 @@ git checkout old-dotfiles
 >
 > - Use `bash ./setup.sh --dry-run` first to preview file changes.
 > - Package installation is skipped unless you pass `--install-packages`.
+> - The one-shot path still assumes you already created a non-root user with sudo access during Arch installation.
 > - Waybar's GitHub `.env` file is created only if it does not already exist.
 > - If you have customizations you care about, review the script and keep your own backup before running.
 
@@ -224,4 +224,3 @@ After cloning, update the paths in your Tmux configuration if your directory str
 | **Prefix + m** | Open *[mpterm](https://github.com/ad1822/mpterm)* — a minimal music player terminal                                r
 
 ---
-

@@ -14,8 +14,7 @@ local function windowRule(class, workspace, silent)
 end
 
 -- Workspace 1: Browsers
-windowRule("zen", "1", true)
-windowRule("google-chrome", "1")
+windowRule("google-chrome", "1", true)
 windowRule("firefox", "1")
 
 -- Workspace 2: Terminals

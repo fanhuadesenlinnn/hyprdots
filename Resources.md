@@ -31,7 +31,8 @@
 - **Window Manager**: hyprland (Tiling)
 - **Status Bar**: Waybar
 - **Notification Manager**: Dunst
-- **Browser**: Firefox
+- **Browser**: Google Chrome
+- **Input Method**: Fcitx5 + Rime
 - **Image Viewer**: feh
 - **Video Player**: VLC
 - **Color Picker**: hyprpicker
@@ -78,9 +79,9 @@
 
 ### System Management
 
-- **Network Management**: NetworkManager (nmcli), iwd (iNet Wireless Daemon)
+- **Network Management**: NetworkManager (nmcli)
 - **Bluetooth Management**: Bluez, Bluez-utils
-- **Audio Management**: pamixer, PulseAudio
+- **Audio Management**: PipeWire, WirePlumber, pamixer
 - **Brightness Control**: brightnessctl
 - **Power Management**: acpi
 - **Media Player Control**: playerctl

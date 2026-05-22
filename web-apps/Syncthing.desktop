@@ -2,7 +2,7 @@
 Version=1.0
 Name=Syncthing
 Comment=Syncthing
-Exec=zen-browser http://127.0.0.1:8384/
+Exec=google-chrome-stable --new-window http://127.0.0.1:8384/
 Terminal=false
 Type=Application
 Icon=$HOME/.local/share/applications/icons/Syncthing.png

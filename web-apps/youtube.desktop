@@ -2,7 +2,7 @@
 Version=1.0
 Name=Youtube
 Comment=Youtube
-Exec=zen-browser https://www.youtube.com/
+Exec=google-chrome-stable --new-window https://www.youtube.com/
 Terminal=false
 Type=Application
 Icon=$HOME/.local/share/applications/icons/youtube.png

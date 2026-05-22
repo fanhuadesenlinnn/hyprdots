@@ -2,7 +2,7 @@
 Version=1.0
 Name=Music
 Comment=Music
-Exec=zen-browser https://music.youtube.com/
+Exec=google-chrome-stable --new-window https://music.youtube.com/
 Terminal=false
 Type=Application
 Icon=$HOME/.local/share/applications/icons/music.png

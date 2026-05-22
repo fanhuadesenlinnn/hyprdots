@@ -1,9 +1,0 @@
-[Desktop Entry]
-Version=1.0
-Name=Developer Dashboard
-Comment=Developer Dashboard
-Exec=zen-browser http://localhost:3000/summary?interval=today
-Terminal=false
-Type=Application
-Icon=$HOME/.local/share/applications/icons/Developer Dashboard.png
-StartupNotify=true

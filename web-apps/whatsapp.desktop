@@ -2,7 +2,7 @@
 Version=1.0
 Name=Whatsapp
 Comment=Whatsapp
-Exec=zen-browser web.whatsapp.com/
+Exec=google-chrome-stable --new-window https://web.whatsapp.com/
 Terminal=false
 Type=Application
 Icon=$HOME/.local/share/applications/icons/whatsapp.png

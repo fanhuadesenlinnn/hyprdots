@@ -8,6 +8,6 @@ return {
 	-- filetypes to attach plugin to
 	init = function()
 		vim.g.mkdp_filetypes = { "markdown" }
-		vim.g.mkdp_browser = "zen-browser" -- direct browser setting
+		vim.g.mkdp_browser = "google-chrome-stable" -- direct browser setting
 	end,
 }

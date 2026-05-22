@@ -11,37 +11,76 @@ ASSUME_YES=0
 INSTALL_PACKAGES=0
 
 PACMAN_PACKAGES=(
+  acpi
+  atuin
+  bat
+  bluez
+  bluez-utils
   brightnessctl
+  btop
+  cava
+  cliphist
+  desktop-file-utils
   dunst
+  eza
+  fastfetch
+  fcitx5
+  fcitx5-configtool
+  fcitx5-gtk
+  fcitx5-qt
+  fcitx5-rime
+  fd
+  fish
+  fzf
+  git
   grim
   hyprland
+  hypridle
   hyprlock
   hyprpaper
   hyprpicker
+  hyprpolkitagent
+  jq
+  kitty
   libnotify
+  mesa
+  networkmanager
+  noto-fonts
+  noto-fonts-cjk
+  noto-fonts-emoji
+  obsidian
   pamixer
   pavucontrol
-  rofi-wayland
+  pipewire
+  pipewire-alsa
+  pipewire-pulse
+  playerctl
+  polkit
+  rime-luna-pinyin
+  rofi
+  rtkit
+  sddm
   slurp
+  starship
   tmux
   ttf-iosevka-nerd
+  unzip
   waybar
   wget
+  wireplumber
   wl-clipboard
+  wtype
   xdg-desktop-portal
+  xdg-desktop-portal-gtk
   xdg-desktop-portal-hyprland
+  xdg-utils
+  xorg-xwayland
+  yazi
+  zoxide
 )
 
 AUR_PACKAGES=(
-  acpi
-  atuin
-  eza
-  fzf
-  pacseek
-  playerctl
-  starship
-  unzip
-  zoxide
+  google-chrome
 )
 
 CONFIG_MODULES=(
@@ -51,11 +90,16 @@ CONFIG_MODULES=(
   dunst
   yazi
   fish
+  fcitx5
+  atuin
+  btop
   cava
   kitty
   fastfetch
   starship
   hypridle
+  gtk-3.0
+  gtk-4.0
 )
 
 usage() {
@@ -65,7 +109,7 @@ Usage: ./setup.sh [options]
 Options:
   -n, --dry-run          Print the planned actions without changing files.
   -y, --yes              Answer yes to prompts.
-      --install-packages Offer to install pacman/yay packages.
+      --install-packages Install the packages needed for a minimal Arch desktop.
   -h, --help             Show this help.
 
 Environment overrides:
@@ -99,12 +143,6 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
-  echo "Do not run this script as root or with sudo."
-  echo "Run it as your normal user. The script will ask for sudo when needed."
-  exit 1
-fi
-
 cecho() {
   local color="$1"
   shift
@@ -118,6 +156,11 @@ cecho() {
   CYAN) printf '\033[36m%s\033[0m\n' "$*" ;;
   *) printf '%s\n' "$*" ;;
   esac
+}
+
+die() {
+  cecho RED "$*"
+  exit 1
 }
 
 confirm() {
@@ -139,6 +182,44 @@ run() {
     printf '\n'
   else
     "$@"
+  fi
+}
+
+preflight() {
+  if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
+    die "Do not run this script as root or with sudo. Run it as your normal user; sudo will be requested when needed."
+  fi
+
+  if [[ "$INSTALL_PACKAGES" -eq 1 ]]; then
+    if [[ ! -f /etc/arch-release ]]; then
+      if [[ "$DRY_RUN" -eq 1 ]]; then
+        cecho YELLOW "Dry-run on a non-Arch host; package commands are only previewed."
+      else
+        die "This package install path is intended for Arch Linux."
+      fi
+    fi
+
+    if ! command -v pacman >/dev/null 2>&1; then
+      if [[ "$DRY_RUN" -eq 1 ]]; then
+        cecho YELLOW "pacman not found in dry-run environment."
+      else
+        die "pacman not found; cannot install Arch packages."
+      fi
+    fi
+
+    if ! command -v sudo >/dev/null 2>&1; then
+      if [[ "$DRY_RUN" -eq 1 ]]; then
+        cecho YELLOW "sudo not found in dry-run environment."
+      else
+        die "sudo not found; install sudo and add this user to sudoers first."
+      fi
+    fi
+
+    if [[ "$DRY_RUN" -eq 0 ]]; then
+      sudo -v
+    else
+      echo "[dry-run] sudo -v"
+    fi
   fi
 }
 
@@ -260,10 +341,133 @@ post_install_module() {
   esac
 }
 
+ensure_hyprpaper_config() {
+  local config_path="$HOME/.config/hypr/hyprpaper.conf"
+
+  if [[ -f "$config_path" ]]; then
+    return 0
+  fi
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    echo "[dry-run] create initial $config_path"
+    return 0
+  fi
+
+  cat >"$config_path" <<EOF
+splash = false
+EOF
+}
+
+install_web_apps() {
+  local source="$DOTS_DIR/web-apps"
+  local apps_dir="$HOME/.local/share/applications"
+  local icons_dir="$apps_dir/icons"
+  local desktop_file
+  local target_file
+
+  if [[ ! -d "$source" ]]; then
+    cecho YELLOW "No web app launchers found at $source"
+    return 0
+  fi
+
+  if ! confirm "Install Chrome web app launchers to $apps_dir?"; then
+    cecho YELLOW "Skipped web app launchers."
+    return 0
+  fi
+
+  run mkdir -p "$apps_dir" "$icons_dir"
+
+  if [[ -d "$source/icons" ]]; then
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      echo "[dry-run] copy web app icons from $source/icons to $icons_dir"
+    else
+      cp -a "$source/icons"/. "$icons_dir"/
+    fi
+  fi
+
+  while IFS= read -r desktop_file; do
+    if [[ "$(basename "$desktop_file")" == "steam.desktop" ]] && ! command -v steam >/dev/null 2>&1; then
+      cecho YELLOW "Skipping steam.desktop because steam is not installed."
+      continue
+    fi
+
+    target_file="$apps_dir/$(basename "$desktop_file")"
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      echo "[dry-run] install $desktop_file to $target_file with HOME expanded"
+    else
+      sed "s|\$HOME|$HOME|g" "$desktop_file" >"$target_file"
+      chmod 0644 "$target_file"
+    fi
+  done < <(find "$source" -maxdepth 1 -type f -name "*.desktop" | sort)
+
+  cecho GREEN "Web app launchers installed."
+}
+
+enable_system_services() {
+  local services=(
+    NetworkManager.service
+    bluetooth.service
+    sddm.service
+  )
+  local service
+
+  if [[ "$INSTALL_PACKAGES" -ne 1 ]]; then
+    return 0
+  fi
+
+  if ! confirm "Enable NetworkManager, Bluetooth, and SDDM for next boot?"; then
+    cecho YELLOW "Skipped system service enablement."
+    return 0
+  fi
+
+  for service in "${services[@]}"; do
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      echo "[dry-run] sudo systemctl enable $service"
+    else
+      sudo systemctl enable "$service"
+    fi
+  done
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    echo "[dry-run] sudo systemctl set-default graphical.target"
+  else
+    sudo systemctl set-default graphical.target
+  fi
+}
+
+enable_user_audio_services() {
+  local services=(
+    pipewire.service
+    pipewire-pulse.service
+    wireplumber.service
+  )
+  local service
+
+  if [[ "$INSTALL_PACKAGES" -ne 1 ]]; then
+    return 0
+  fi
+
+  if ! confirm "Enable PipeWire user audio services globally?"; then
+    cecho YELLOW "Skipped PipeWire user services."
+    return 0
+  fi
+
+  for service in "${services[@]}"; do
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      echo "[dry-run] sudo systemctl --global enable $service"
+    else
+      sudo systemctl --global enable "$service"
+    fi
+  done
+}
+
 install_pacman_packages() {
   if ! command -v pacman >/dev/null 2>&1; then
-    cecho YELLOW "pacman not found; skipping pacman package install."
-    return 0
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      cecho YELLOW "pacman not found; previewing pacman install command anyway."
+    else
+      die "pacman not found; cannot install pacman packages."
+    fi
   fi
 
   if confirm "Install core pacman packages?"; then
@@ -278,8 +482,11 @@ install_yay() {
   fi
 
   if ! command -v pacman >/dev/null 2>&1; then
-    cecho YELLOW "pacman not found; cannot install yay."
-    return 0
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      cecho YELLOW "pacman not found; previewing yay bootstrap anyway."
+    else
+      die "pacman not found; cannot install yay."
+    fi
   fi
 
   if ! confirm "Install yay AUR helper?"; then
@@ -305,8 +512,11 @@ install_yay() {
 
 install_aur_packages() {
   if ! command -v yay >/dev/null 2>&1; then
-    cecho YELLOW "yay not found; skipping AUR package install."
-    return 0
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      cecho YELLOW "yay not found; previewing AUR install command anyway."
+    else
+      die "yay not found; cannot install AUR packages."
+    fi
   fi
 
   if confirm "Install helper packages with yay?"; then
@@ -348,11 +558,12 @@ main() {
     cecho MAGENTA "Dry-run mode: no files will be changed."
   fi
 
+  preflight
   run mkdir -p "$HOME/Pictures/Wallpaper"
 
   if [[ "$INSTALL_PACKAGES" -eq 1 ]]; then
-    install_yay
     install_pacman_packages
+    install_yay
     install_aur_packages
   else
     cecho YELLOW "Package install skipped. Re-run with --install-packages to enable it."
@@ -362,6 +573,10 @@ main() {
     copy_config_module "$module"
   done
 
+  ensure_hyprpaper_config
+  install_web_apps
+  enable_system_services
+  enable_user_audio_services
   setup_wakafetch
   cecho GREEN "Setup complete."
 }

@@ -19,7 +19,7 @@ end
 bind(mod, "T", vars.terminal)
 bind(mod, "E", vars.terminal .. " -e " .. vars.fileManager)
 bind(mod, "C", vars.colorpicker .. " -a")
-bind(mod, "B", vars.zenBrowser)
+bind(mod, "B", vars.browser)
 bind(mod, "O", vars.note)
 
 -- ── Rofi ─────────────────────────────────────────────────────────

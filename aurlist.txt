@@ -44,6 +44,11 @@ eww
 eza
 fakeroot
 fastfetch
+fcitx5
+fcitx5-configtool
+fcitx5-gtk
+fcitx5-qt
+fcitx5-rime
 fd
 ffmpeg
 fish
@@ -121,6 +126,7 @@ man-db
 manifest-tool-bin
 mariadb
 mechsim
+mesa
 meson
 minikube
 mmv
@@ -135,6 +141,7 @@ neofetch
 neovim
 net-tools
 networkmanager
+noto-fonts
 newman
 nfs-utils
 nim
@@ -157,6 +164,7 @@ pavucontrol
 pipes.sh
 pipewire-alsa
 pipewire-pulse
+polkit
 postgresql
 postman-bin
 powertop
@@ -174,7 +182,9 @@ r-magick
 rclone
 redshift
 remind
-rofi-wayland
+rime-luna-pinyin
+rofi
+rtkit
 sassc
 sddm
 skopeo
@@ -228,6 +238,7 @@ xdg-desktop-portal-gtk
 xdg-desktop-portal-hyprland
 xdg-desktop-portal-wlr
 xf86-video-intel
+xorg-xwayland
 xorg-xbacklight
 xorg-xinit
 yamllint
@@ -238,7 +249,6 @@ yazi
 yq
 yt-dlp
 zathura
-zen-browser-avx2-bin
 zip
 zoxide
 zsh
